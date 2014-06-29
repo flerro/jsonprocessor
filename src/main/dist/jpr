@@ -1,26 +1,37 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
-# A sample startup script for jsonprocessor, put along the JAR in a directory included system in PATH
+# A sample startup script for jsonprocessor, put along the JAR in a directory included in PATH
 #
-# Visit: http://www.rolandfg.net/2014/06/29/json-commandline-processor/)
+# Visit: http://www.rolandfg.net/2014/06/29/json-commandline-processor/
 #
 
 VER="1.0"
+NAME="jsonprocessor"
 
 BASE=`dirname $0`
 JAVA=`which java`
-JAR="$BASE/jsontx-$VER-all.jar"
+JAR="$BASE/$NAME-$VER-all.jar"
 
-if [ `uname -o` = "Cygwin" ]
-then
-    JAR=`cygpath -a -w "$JAR"`
+if [ -z "$JAVA" ]; then
+    echo "Unable to find JAVA executable in PATH"
+    exit 1
 fi
 
-$JAVA -jar "$JAR" $*
+if [ `uname -o` = "Cygwin" ];then
+    # JAR file PATH
+    JAR=`cygpath -w "$JAR"`
 
-# Handle read from the stdin - eg. echo '[{"a":1,"b":2}]' | jsontx -p
-#INPUT=`mktemp`
-#read_from_pipe() { read "$@" <&0; }
-#read_from_pipe FOO
-#echo $FOO > $INPUT
-#$JAVA -jar "$JAR" $* $INPUT
+    # File path
+    OTHERPARAMS="$@"
+    echo $OTHERPARAMS
+    INPUTFILE=""
+    LASTARG=${@: -1}
+    if [ -f "$LASTARG" ]; then
+        INPUTFILE=`cygpath -w $LASTARG`
+        LEN=$(($#-1))
+        OTHERPARAMS=${@:1:$LEN}
+    fi
+fi
+
+# TODO Handle parameters with password
+echo $JAVA -jar "$JAR" "$OTHERPARAMS" $INPUTFILE
