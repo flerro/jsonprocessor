@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# A sample startup script for jsonprocessor, put along the JAR in a directory included system in PATH
+#
+# Visit: http://www.rolandfg.net/2014/06/29/json-commandline-processor/)
+#
+
+VER="1.0"
+
+BASE=`dirname $0`
+JAVA=`which java`
+JAR="$BASE/jsontx-$VER-all.jar"
+
+if [ `uname -o` = "Cygwin" ]
+then
+    JAR=`cygpath -a -w "$JAR"`
+fi
+
+$JAVA -jar "$JAR" $*
+
+# Handle read from the stdin - eg. echo '[{"a":1,"b":2}]' | jsontx -p
+#INPUT=`mktemp`
+#read_from_pipe() { read "$@" <&0; }
+#read_from_pipe FOO
+#echo $FOO > $INPUT
+#$JAVA -jar "$JAR" $* $INPUT
