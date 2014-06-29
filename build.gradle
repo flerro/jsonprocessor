@@ -1,6 +1,5 @@
-project.mainClass = "net.rolandfg.bin.JsonTransformer"
 project.version = '1.0'
-project.sourceCompatibility = 1.7
+//project.sourceCompatibility = 1.7
 
 buildscript {
     repositories { jcenter() }
@@ -10,7 +9,7 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-//apply plugin: 'java' // or 'groovy'. Must be explicitly applied
+apply plugin: 'distribution'
 apply plugin: 'com.github.johnrengelman.shadow'
 
 repositories {
@@ -20,7 +19,7 @@ repositories {
 jar {
     manifest {
         attributes(
-                "Main-Class": project.mainClass,
+                "Main-Class": "net.rolandfg.bin.JsonTransformer",
                 "Implementation-Title": project.name,
                 "Implementation-Version": project.version)
     }
@@ -30,4 +29,15 @@ dependencies {
     compile 'org.codehaus.groovy:groovy:2.3.3'
     compile 'org.codehaus.groovy:groovy-json:2.3.3'
     compile 'commons-cli:commons-cli:1.2'
+
+//    test 'junit:junit:4.11'
+}
+
+distributions {
+    main {
+        baseName = "dist"
+        contents {
+            from { "${project.buildDir}/libs/${project.name}-${project.version}-all.jar" }
+        }
+    }
 }
