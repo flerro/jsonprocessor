@@ -2,9 +2,9 @@ package net.rolandfg.bin
 
 import groovy.json.JsonSlurper
 
-import static net.rolandfg.bin.JsonTransformer.*
+import static JsonProcessor.*
 
-class JsonTransformerTest extends GroovyTestCase {
+class JsonProcessorTest extends GroovyTestCase {
 
     // -------------------------------------------------------------------------------------------------- cli parser
 
@@ -100,15 +100,15 @@ class JsonTransformerTest extends GroovyTestCase {
 
     // -------------------------------------------------------------------------------------------------- integration tests
 
-    def checkJSONTransformation = { String content, String[] args, expectedOutput ->
+    def checkMarkupTransformation = { String content, String[] args, expectedOutput ->
         def options = cliBuilder().parse(args)
         assert options, "Invalid CLI"
 
-        def jsonContent = new JsonSlurper().parseText(content)
+        def markup = options.xml ? new XmlSlurper().parseText(content) : new JsonSlurper().parseText(content)
         String source = buildExpr(options)
         assert source
 
-        assert transform(options.root ? (jsonContent."${options.root}") : jsonContent, source) == expectedOutput
+        assert transform(options.root ? (markup."${options.root}") : markup, source) == expectedOutput
     }
 
     void testIntegrationSimple() {
@@ -116,8 +116,29 @@ class JsonTransformerTest extends GroovyTestCase {
         String[] cli = ["-x", "-f", "_.age > 18", "-e", "_.name", "-s", "_.age", "--sort-desc"]
         List expectedOutput = ["Beatrice","Andrea"]
 
-        checkJSONTransformation(content, cli, expectedOutput)
+        checkMarkupTransformation(content, cli, expectedOutput)
     }
+
+//    void testIntegrationXml() {
+//        String content = '''<?xml version="1.0" encoding="UTF-8" ?>
+//<people>
+//    <person age="19">
+//        <name>Andrea</name>
+//    </person>
+//    <person age="21">
+//        <name>Beatrice</name>
+//    </person>
+//    <person age="16">
+//        <name>Carlo</name>
+//    </person>
+//</people>
+//'''
+////        String[] cli = ["-x", "-f", "_.@age > 18", "-e", "_.name", "-s", "_.@age", "--sort-desc", "--xml"]
+//        String[] cli = ["-x", "_.name", "--xml"]
+//        List expectedOutput = ["Andrea","Beatrice","Carlo"]
+//
+//        checkMarkupTransformation(content, cli, expectedOutput)
+//    }
 
     void testIntegrationComplex() {
         String content = '''{
@@ -143,6 +164,6 @@ class JsonTransformerTest extends GroovyTestCase {
         String[] cli = [ "--root", "metadata", "--flat", "-f","_.name.endsWith('e')", "-e", "[(_.name) : (_.val)]" ]
         List expectedOutput = [[media_type:"application/json"], [website:"json.org"]]
 
-        checkJSONTransformation(content, cli, expectedOutput)
+        checkMarkupTransformation(content, cli, expectedOutput)
     }
 }

@@ -3,11 +3,10 @@ package net.rolandfg.bin
 import groovy.json.JsonBuilder
 import groovy.json.JsonException
 import groovy.json.JsonSlurper
-import org.apache.commons.cli.Options
 
 import static System.exit
 
-class JsonTransformer {
+class JsonProcessor {
 
     /**
      * Build an object to handle command line arguments
@@ -15,13 +14,13 @@ class JsonTransformer {
      * @return a cli builder object
      */
     static CliBuilder cliBuilder() {
-        CliBuilder cli = new CliBuilder(usage: 'jsontx [options] input.json',
+        CliBuilder cli = new CliBuilder(usage: 'java -jar jpr.jar [options] input.json',
                                         header: '\nJSON filtering and transformation leveraging Groovy expressivity.\nOptions:',
                                         footer: '\neg. List names of people over 18, descending by age\n' +
                                                 '.\n' +
                                                 '.   Input: [{"name":"Andrea","age":19} {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
                                                 '.\n' +
-                                                '.     Cmd: jsontx -f "_.age > 18" -m _.name -s _.age --sort-dec input.json\n' +
+                                                '.     Cmd: java -jar jpr.jar -f "_.age > 18" -m _.name -s _.age --sort-dec input.json\n' +
                                                 '.\n' +
                                                 '.  Output: ["Bianca","Andrea"]\n' +
                                                 '.\n' +
@@ -102,11 +101,12 @@ class JsonTransformer {
         }
 
         if (options.'quickstart') {
-            println "TODO print manual"
+            println "To Be Done. More info at http://www.rolandfg.net/2014/06/30/martkuptransformer-grep-awk-sed-json-xml"
             exit(0)
         }
 
         boolean useStdin = options.arguments().size() == 0
+        boolean isXMLSource = options.xml
 
         File inputFile = useStdin ? null : new File(options.arguments()[0])
         if (!useStdin && !inputFile.canRead()) {
