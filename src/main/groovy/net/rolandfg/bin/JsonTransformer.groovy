@@ -3,6 +3,8 @@ package net.rolandfg.bin
 import groovy.json.JsonBuilder
 import groovy.json.JsonException
 import groovy.json.JsonSlurper
+import org.apache.commons.cli.Options
+
 import static System.exit
 
 class JsonTransformer {
@@ -35,10 +37,32 @@ class JsonTransformer {
             s longOpt: 'sort', args: 1, argName: 'sort_expr', 'a Groovy expression used to sort output nodes'
             _ longOpt: 'sort-desc', 'reverse sort'
             _ longOpt: 'quickstart', 'print a quick-start manual'
-            x 'enable debug mode (for troubleshooting)'
+            x longOpt: 'debug','enable debug mode (for troubleshooting)'
         }
 
         cli
+    }
+
+    /**
+     * Build a Groovy snippet from input options
+     *
+     * @param options options from command line
+     * @return a Groovy script as string
+     */
+    static String buildExpr(Object options) {
+        def debugExpr = { w -> options.x ? 'println \'' + w.padLeft(10) + ': \' + _; ' : '' }
+//        def debugExpr =  { w -> '' }
+
+        StringBuilder source = new StringBuilder()
+        if (options.x) source << 'nodes = '
+        source << 'root'
+        if (options.f) source << ".findAll{ _ -> ${debugExpr('Filter')}${options.f} }"
+        if (options.s) source << ".sort{ _ -> ${debugExpr('Sort')}${options.s} }"
+        if (options.'sort-desc') source << '.reverse()'
+        if (options.m) source << ".collect{ _ -> ${debugExpr('Map')}${options.m} }"
+        if (options.x) source << ";println '    Output: ' + nodes;nodes"
+
+        source.toString()
     }
 
     /**
@@ -47,75 +71,25 @@ class JsonTransformer {
      * @param content the content to be processed
      * @param options a set of options (cfr. {@see JsonTX.parseCmdLine} or run with -h switch)
      */
-    static void transform(Reader content, def options) {
-
-        def jsonContent = new JsonSlurper().parse(content)
-
-        def startNode = options.root
-        def debugExpr = options.x ? 'println _;' : ''
-        def filterExpr = options.f ? "root.findAll{ _ -> ${debugExpr}${options.f} }" : ""
-        def mapExpr = options.m ? "root.collect{ _ -> ${debugExpr}${options.m} }" : ""
-        def sortExpr = options.s ? "root.sort{ _ -> ${debugExpr}${options.s}}${options.'sort-desc' ? '.reverse()' : '' }" : ""
-
-        if (options.x) {
-            println "  Root: ${startNode} "
-            println "Filter: ${filterExpr}"
-            println "   Map: ${mapExpr}"
+    static def transform(Object rootNode, String source) {
+        try {
+            Binding binding = new Binding(root: rootNode)
+            GroovyShell gs = new GroovyShell(binding)
+            gs.evaluate(source.toString())
+        } catch (Exception ex){
+            throw new IllegalArgumentException("Invalid expression: ${source}", ex)
         }
-
-        def root = startNode ? jsonContent."$startNode" : jsonContent
-        if (!root) {
-            throw new UnsupportedOperationException("Invalid root node: \"$startNode\"")
-        }
-
-        def nodes = null
-
-        Binding binding = new Binding(root: root)
-        GroovyShell gs = new GroovyShell(binding)
-
-        if (filterExpr) {
-            try {
-                nodes = gs.evaluate(filterExpr)
-                binding.setVariable('root', nodes)
-            } catch (Exception ex) {
-                throw new IllegalArgumentException("Invalid filter expression: ${options.f}", ex)
-            }
-            if (!nodes) throw new RuntimeException("Empty result.")
-        }
-
-        if (sortExpr) {
-            try {
-                nodes = gs.evaluate(sortExpr)
-                binding.setVariable('root', nodes)
-            } catch (Exception ex) {
-                throw new IllegalArgumentException("Invalid sort expression: ${options.s}", ex)
-            }
-        }
-
-        if (mapExpr) {
-            try {
-                nodes = gs.evaluate(mapExpr)
-            } catch (Exception ex){
-                throw new IllegalArgumentException("Invalid map expression: ${options.m}", ex)
-            }
-        }
-
-        nodes ?: root
     }
 
-    /**
-     *
-     * @param args
-     */
+
     static void main(String[] args) {
+        def err = System.err.&println
 
         def cli = cliBuilder()
         def options = cli.parse(args)
-
         if (!options) exit(1)
 
         boolean debug = options.x
-        def err = System.err.&println
 
         if (options.help) {
             cli.usage()
@@ -138,22 +112,30 @@ class JsonTransformer {
 
         try {
             Reader jsonContentReader = useStdin ? new InputStreamReader(System.in) : new FileReader(inputFile)
-            def nodes = transform(jsonContentReader, options)
 
+            def jsonContent = new JsonSlurper().parse(jsonContentReader)
+            def startNode = options.root
+            def rootNode = startNode ? jsonContent."$startNode" : jsonContent
+            if (!rootNode) {
+               err "Invalid root node: \"$startNode\""
+               exit(1)
+            }
+
+            String expr = buildExpr(options)
+            if (debug) println "Expression: ${expr}"
+
+            def nodes = transform(rootNode, expr)
             def builder = new JsonBuilder(options.flat ? nodes.flatten() : nodes)
+
             println options.p ? builder.toPrettyString() : builder.toString()
 
         } catch (JsonException jex) {
-            err "Invalid JSON in input. ${jex.message}"
+            err "Invalid input. ${jex.message}"
             if (debug) jex.printStackTrace()
 
         } catch (Exception ex) {
-            err "Error. ${ex.message} ${ex?.cause?.message ?: ""}"
-
-            if (debug) {
-                ex.printStackTrace()
-//                ex?.cause?.printStackTrace()
-            }
+            err "${ex.message}\n  ${ex?.cause?.message ?: ""}"
+            if (debug) ex.printStackTrace()
         }
 
         exit(0)
