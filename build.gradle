@@ -19,7 +19,7 @@ repositories {
 jar {
     manifest {
         attributes(
-                "Main-Class": "net.rolandfg.bin.JsonTransformer",
+                "Main-Class": "net.rolandfg.bin.JsonProcessor",
                 "Implementation-Title": project.name,
                 "Implementation-Version": project.version)
     }
@@ -29,13 +29,11 @@ dependencies {
     compile 'org.codehaus.groovy:groovy:2.3.3'
     compile 'org.codehaus.groovy:groovy-json:2.3.3'
     compile 'commons-cli:commons-cli:1.2'
-
-//    test 'junit:junit:4.11'
 }
 
 distributions {
     main {
-        baseName = "dist"
+        baseName = project.name
         contents {
             from { "${project.buildDir}/libs/${project.name}-${project.version}-all.jar" }
         }

@@ -18,7 +18,7 @@ class JsonProcessor {
                                         header: '\nJSON filtering and transformation leveraging Groovy expressivity.\nOptions:',
                                         footer: '\neg. List names of people over 18, descending by age\n' +
                                                 '.\n' +
-                                                '.   Input: [{"name":"Andrea","age":19} {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
+                                                '.   Input: [{"name":"Andrea","age":19}, {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
                                                 '.\n' +
                                                 '.     Cmd: java -jar jpr.jar -f "_.age > 18" -m _.name -s _.age --sort-dec input.json\n' +
                                                 '.\n' +
@@ -101,7 +101,7 @@ class JsonProcessor {
         }
 
         if (options.'quickstart') {
-            println "To Be Done. More info at http://www.rolandfg.net/2014/06/30/martkuptransformer-grep-awk-sed-json-xml"
+            println "More info at http://www.rolandfg.net/2014/06/29/json-commandline-processor/#usage"
             exit(0)
         }
 
