@@ -3,6 +3,7 @@ package net.rolandfg.bin
 import groovy.json.JsonBuilder
 import groovy.json.JsonException
 import groovy.json.JsonSlurper
+import static System.exit
 
 class JsonTransformer {
 
@@ -34,6 +35,7 @@ class JsonTransformer {
             s longOpt: 'sort', args: 1, argName: 'sort_expr', 'a Groovy expression used to sort output nodes'
             _ longOpt: 'sort-desc', 'reverse sort'
             _ longOpt: 'quickstart', 'print a quick-start manual'
+            x 'enable debug mode (for troubleshooting)'
         }
 
         cli
@@ -44,70 +46,61 @@ class JsonTransformer {
      *
      * @param content the content to be processed
      * @param options a set of options (cfr. {@see JsonTX.parseCmdLine} or run with -h switch)
-     * @param debug   display debug informations
-     */ 
-    static void transform(Reader content, def options, Boolean debug) {
+     */
+    static void transform(Reader content, def options) {
 
         def jsonContent = new JsonSlurper().parse(content)
 
-        def prettyPrint = { nodes ->
-            def builder = new JsonBuilder(options.flat ? nodes.flatten() : nodes)
-            println options.p ? builder.toPrettyString() : builder.toString()
-        }
-
         def startNode = options.root
-        def filterExpr = options.f ? "root.findAll{ _ -> ${options.f} }" : ""
-        def mapExpr = options.m ? "root.collect{ _ -> ${options.m} }" : ""
-        def sortExpr = options.s ? "root.sort{ _ -> ${options.s}}${options.'sort-desc' ? '.reverse()' : '' }" : ""
+        def debugExpr = options.x ? 'println _;' : ''
+        def filterExpr = options.f ? "root.findAll{ _ -> ${debugExpr}${options.f} }" : ""
+        def mapExpr = options.m ? "root.collect{ _ -> ${debugExpr}${options.m} }" : ""
+        def sortExpr = options.s ? "root.sort{ _ -> ${debugExpr}${options.s}}${options.'sort-desc' ? '.reverse()' : '' }" : ""
+
+        if (options.x) {
+            println "  Root: ${startNode} "
+            println "Filter: ${filterExpr}"
+            println "   Map: ${mapExpr}"
+        }
 
         def root = startNode ? jsonContent."$startNode" : jsonContent
-
-        if (debug) {
-            System.out.println("  Root: ${startNode} ")
-            System.out.println("Filter: ${filterExpr}")
-            System.out.println("   Map: ${mapExpr}")
-        }
-
         if (!root) {
-            println "Unable to find \"$startNode\" as root node"
-            System.exit(1)
-        }
-
-        if (debug) {
-            System.out.println("")
-            System.out.println("Processing...")
+            throw new UnsupportedOperationException("Invalid root node: \"$startNode\"")
         }
 
         def nodes = null
 
-        try {
-            Binding binding = new Binding(root: root, debug: debug)
-            GroovyShell gs = new GroovyShell(binding)
+        Binding binding = new Binding(root: root)
+        GroovyShell gs = new GroovyShell(binding)
 
-            if (filterExpr) {
+        if (filterExpr) {
+            try {
                 nodes = gs.evaluate(filterExpr)
-                if (!nodes) throw new RuntimeException("Empty result.")
                 binding.setVariable('root', nodes)
+            } catch (Exception ex) {
+                throw new IllegalArgumentException("Invalid filter expression: ${options.f}", ex)
             }
+            if (!nodes) throw new RuntimeException("Empty result.")
+        }
 
-            if (sortExpr) {
+        if (sortExpr) {
+            try {
                 nodes = gs.evaluate(sortExpr)
                 binding.setVariable('root', nodes)
-            }
-
-            if (mapExpr) {
-                nodes = gs.evaluate(mapExpr)
-            }
-
-            prettyPrint(nodes ?: root)
-
-        } catch (Exception ex) {
-            System.err.println("Expression eval FAILED. ${ex.message}")
-            if (options.d) {
-                ex.printStackTrace()
+            } catch (Exception ex) {
+                throw new IllegalArgumentException("Invalid sort expression: ${options.s}", ex)
             }
         }
 
+        if (mapExpr) {
+            try {
+                nodes = gs.evaluate(mapExpr)
+            } catch (Exception ex){
+                throw new IllegalArgumentException("Invalid map expression: ${options.m}", ex)
+            }
+        }
+
+        nodes ?: root
     }
 
     /**
@@ -116,49 +109,54 @@ class JsonTransformer {
      */
     static void main(String[] args) {
 
-        boolean debug = System.getenv("DEBUG")
-
         def cli = cliBuilder()
         def options = cli.parse(args)
 
-        if (!options) {
-            System.exit(1)
-        }
+        if (!options) exit(1)
+
+        boolean debug = options.x
+        def err = System.err.&println
 
         if (options.help) {
             cli.usage()
-            System.exit(0)
+            exit(1)
         }
 
         if (options.'quickstart') {
-            System.out.println("TODO print manual")
-            System.exit(0)
+            println "TODO print manual"
+            exit(0)
         }
 
         boolean useStdin = options.arguments().size() == 0
 
         File inputFile = useStdin ? null : new File(options.arguments()[0])
         if (!useStdin && !inputFile.canRead()) {
-            System.err.println("Unable to read: ${inputFile.absolutePath}")
+            err "Unable to read: ${inputFile.absolutePath}"
             cli.usage()
-            System.exit(1)
+            exit(1)
         }
 
         try {
-
             Reader jsonContentReader = useStdin ? new InputStreamReader(System.in) : new FileReader(inputFile)
-            transform(jsonContentReader, options, debug)
+            def nodes = transform(jsonContentReader, options)
+
+            def builder = new JsonBuilder(options.flat ? nodes.flatten() : nodes)
+            println options.p ? builder.toPrettyString() : builder.toString()
 
         } catch (JsonException jex) {
-            System.err.println("Invalid JSON in input. ${jex.message}")
+            err "Invalid JSON in input. ${jex.message}"
             if (debug) jex.printStackTrace()
 
         } catch (Exception ex) {
-            System.err.println("Error: ${ex.message}")
-            if (debug) ex.printStackTrace()
+            err "Error. ${ex.message} ${ex?.cause?.message ?: ""}"
+
+            if (debug) {
+                ex.printStackTrace()
+//                ex?.cause?.printStackTrace()
+            }
         }
 
-        System.exit(0)
+        exit(0)
     }
 
 }
