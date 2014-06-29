@@ -13,19 +13,17 @@ class JsonTransformer {
     static CliBuilder cliBuilder() {
         CliBuilder cli = new CliBuilder(usage: 'jsontx [options] input.json',
                                         header: '\nJSON filtering and transformation leveraging Groovy expressivity.\nOptions:',
-                                        footer: '\neg. List names of people over age\n' +
+                                        footer: '\neg. List names of people over 18, descending by age\n' +
                                                 '.\n' +
-                                                '.   jsontx -f "_.age > 18" -m _.name input.json\n' +
+                                                '.   Input: [{"name":"Andrea","age":19} {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
                                                 '.\n' +
-                                                '.   Input:   [{"name":"Andrea","age":19},\n' +
-                                                '.              {"name":"Beatrice", "age": 21},\n' +
-                                                '.              {"name":"Carlo", "age":16}]\n' +
+                                                '.     Cmd: jsontx -f "_.age > 18" -m _.name -s _.age --sort-dec input.json\n' +
                                                 '.\n' +
-                                                '.   Output:  ["Andrea","Beatrice"]\n' +
+                                                '.  Output: ["Bianca","Andrea"]\n' +
                                                 '.\n' +
                                                 '.   The undescore (_) references current node in expression.',
-                                        stopAtNonOption: true,
-                                        width: 120)
+                                        stopAtNonOption: false,
+                                        width: 105)
         cli.with {
             _ longOpt: 'root', args: 1, argName: 'base_node', 'use a different root node for transformations'
             f longOpt: 'filter', args: 1, argName: 'filter_expr', 'a boolean Groovy expression to filter input nodes'
@@ -33,6 +31,8 @@ class JsonTransformer {
             t longOpt: 'flat', 'flatten the output, [[a], [b,c]] -> [a,b,c]'
             h longOpt: 'help', 'print this message'
             p longOpt: 'pretty', 'prettyprint the output'
+            s longOpt: 'sort', args: 1, argName: 'sort_expr', 'a Groovy expression used to sort output nodes'
+            _ longOpt: 'sort-desc', 'reverse sort'
             _ longOpt: 'quickstart', 'print a quick-start manual'
         }
 
@@ -44,8 +44,9 @@ class JsonTransformer {
      *
      * @param content the content to be processed
      * @param options a set of options (cfr. {@see JsonTX.parseCmdLine} or run with -h switch)
+     * @param debug   display debug informations
      */ 
-    static void filterAndMap(Reader content, def options, Boolean debug) {
+    static void transform(Reader content, def options, Boolean debug) {
 
         def jsonContent = new JsonSlurper().parse(content)
 
@@ -57,6 +58,7 @@ class JsonTransformer {
         def startNode = options.root
         def filterExpr = options.f ? "root.findAll{ _ -> ${options.f} }" : ""
         def mapExpr = options.m ? "root.collect{ _ -> ${options.m} }" : ""
+        def sortExpr = options.s ? "root.sort{ _ -> ${options.s}}${options.'sort-desc' ? '.reverse()' : '' }" : ""
 
         def root = startNode ? jsonContent."$startNode" : jsonContent
 
@@ -83,15 +85,21 @@ class JsonTransformer {
             GroovyShell gs = new GroovyShell(binding)
 
             if (filterExpr) {
-                nodes = gs.evaluate( filterExpr )
+                nodes = gs.evaluate(filterExpr)
+                if (!nodes) throw new RuntimeException("Empty result.")
+                binding.setVariable('root', nodes)
+            }
+
+            if (sortExpr) {
+                nodes = gs.evaluate(sortExpr)
                 binding.setVariable('root', nodes)
             }
 
             if (mapExpr) {
-                nodes = gs.evaluate( mapExpr )
+                nodes = gs.evaluate(mapExpr)
             }
 
-            prettyPrint( nodes ?: root)
+            prettyPrint(nodes ?: root)
 
         } catch (Exception ex) {
             System.err.println("Expression eval FAILED. ${ex.message}")
@@ -114,9 +122,7 @@ class JsonTransformer {
         def options = cli.parse(args)
 
         if (!options) {
-            System.out.println("Invalid command line.")
-            cli.usage()
-            System.exit(0)
+            System.exit(1)
         }
 
         if (options.help) {
@@ -124,7 +130,7 @@ class JsonTransformer {
             System.exit(0)
         }
 
-        if (options.man) {
+        if (options.'quickstart') {
             System.out.println("TODO print manual")
             System.exit(0)
         }
@@ -141,14 +147,14 @@ class JsonTransformer {
         try {
 
             Reader jsonContentReader = useStdin ? new InputStreamReader(System.in) : new FileReader(inputFile)
-            filterAndMap(jsonContentReader, options, debug)
+            transform(jsonContentReader, options, debug)
 
         } catch (JsonException jex) {
-            System.out.println("Invalid JSON in input. ${jex.message}")
+            System.err.println("Invalid JSON in input. ${jex.message}")
             if (debug) jex.printStackTrace()
 
         } catch (Exception ex) {
-            System.out.println("Invalid JSON in input")
+            System.err.println("Error: ${ex.message}")
             if (debug) ex.printStackTrace()
         }
 
