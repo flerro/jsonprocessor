@@ -10,8 +10,9 @@ import static System.exit
 class JsonTransformer {
 
     /**
+     * Build an object to handle command line arguments
      *
-     * @return a cli builder obkect
+     * @return a cli builder object
      */
     static CliBuilder cliBuilder() {
         CliBuilder cli = new CliBuilder(usage: 'jsontx [options] input.json',
@@ -29,8 +30,8 @@ class JsonTransformer {
                                         width: 105)
         cli.with {
             _ longOpt: 'root', args: 1, argName: 'base_node', 'use a different root node for transformations'
-            f longOpt: 'filter', args: 1, argName: 'filter_expr', 'a boolean Groovy expression to filter input nodes'
-            m longOpt: 'map', args: 1, argName: 'map_expr', 'a Groovy expression applied on each input node'
+            f longOpt: 'filter', args: 1, argName: 'expr', 'a boolean Groovy expression to filter input nodes'
+            e longOpt: 'reduce', args: 1, argName: 'expr', 'a Groovy expression applied on each input node'
             t longOpt: 'flat', 'flatten the output, [[a], [b,c]] -> [a,b,c]'
             h longOpt: 'help', 'print this message'
             p longOpt: 'pretty', 'prettyprint the output'
@@ -59,7 +60,7 @@ class JsonTransformer {
         if (options.f) source << ".findAll{ _ -> ${debugExpr('Filter')}${options.f} }"
         if (options.s) source << ".sort{ _ -> ${debugExpr('Sort')}${options.s} }"
         if (options.'sort-desc') source << '.reverse()'
-        if (options.m) source << ".collect{ _ -> ${debugExpr('Map')}${options.m} }"
+        if (options.e) source << ".collect{ _ -> ${debugExpr('Reduce')}${options.e} }"
         if (options.x) source << ";println '    Output: ' + nodes;nodes"
 
         source.toString()
@@ -75,12 +76,16 @@ class JsonTransformer {
         try {
             Binding binding = new Binding(root: rootNode)
             GroovyShell gs = new GroovyShell(binding)
-            gs.evaluate(source.toString())
+            gs.evaluate(source)
         } catch (Exception ex){
-            throw new IllegalArgumentException("Invalid expression: ${source}", ex)
+            throw new IllegalArgumentException("Exception executing: ${source}\n" +
+                    "Check for error in the groovy expression " +
+                    "(eg. mispelled property name, invalid root node, syntax error).\n" +
+                    "Original error: ${ex.message}", ex)
         }
     }
 
+    // ----------------------------------------------------------------------------------------------
 
     static void main(String[] args) {
         def err = System.err.&println
@@ -114,17 +119,10 @@ class JsonTransformer {
             Reader jsonContentReader = useStdin ? new InputStreamReader(System.in) : new FileReader(inputFile)
 
             def jsonContent = new JsonSlurper().parse(jsonContentReader)
-            def startNode = options.root
-            def rootNode = startNode ? jsonContent."$startNode" : jsonContent
-            if (!rootNode) {
-               err "Invalid root node: \"$startNode\""
-               exit(1)
-            }
-
             String expr = buildExpr(options)
             if (debug) println "Expression: ${expr}"
 
-            def nodes = transform(rootNode, expr)
+            def nodes = transform(options.root ? (jsonContent."${options.root}") : jsonContent, expr)
             def builder = new JsonBuilder(options.flat ? nodes.flatten() : nodes)
 
             println options.p ? builder.toPrettyString() : builder.toString()
@@ -134,7 +132,7 @@ class JsonTransformer {
             if (debug) jex.printStackTrace()
 
         } catch (Exception ex) {
-            err "${ex.message}\n  ${ex?.cause?.message ?: ""}"
+            err ex.message
             if (debug) ex.printStackTrace()
         }
 
