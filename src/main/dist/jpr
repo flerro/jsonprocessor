@@ -33,5 +33,5 @@ if [ `uname -o` = "Cygwin" ];then
     fi
 fi
 
-# TODO Handle parameters with password
+# TODO Handle parameters with space
 echo $JAVA -jar "$JAR" "$OTHERPARAMS" $INPUTFILE
