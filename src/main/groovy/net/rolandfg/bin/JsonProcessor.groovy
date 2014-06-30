@@ -38,24 +38,27 @@ class JsonProcessor {
      * @return a cli builder object
      */
     static CliBuilder cliBuilder() {
-        CliBuilder cli = new CliBuilder(usage: 'java -jar jpr.jar [options] input.json',
+        CliBuilder cli = new CliBuilder(usage: 'java -jar jop.jar [options] [input.json]',
                                         header: '\nJSON filtering and transformation leveraging Groovy expressivity.\nOptions:',
-                                        footer: '\neg. List names of people over 18, descending by age\n' +
-                                                '.\n' +
-                                                '.   Input: [{"name":"Andrea","age":19}, {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
-                                                '.\n' +
-                                                '.     Cmd: java -jar jpr.jar -f "_.age > 18" -m _.name -s _.age --sort-dec input.json\n' +
-                                                '.\n' +
-                                                '.  Output: ["Bianca","Andrea"]\n' +
-                                                '.\n' +
-                                                '.   The undescore (_) references current node in expression.',
+                                        footer: '\nExample: List names, sort descending by age\n\n' +
+                                                '\n | ' +
+                                                '\n | $ cat input.json   \n' +
+                                                '\n | ' +
+                                                '\n |   [{"name":"Andrea", "age":19}, {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
+                                                '\n | ' +
+                                                '\n | $ java -jar jop.jar -s _.age --sort-dec -c _.name input.json\n' +
+                                                '\n | ' +
+                                                '\n |   ["Bianca","Andrea","Carlo"]     ' +
+                                                '\n |  '+
+                                                '\n |  # The undescore (_) references current node in expression.',
                                         stopAtNonOption: false,
                                         width: 105)
         cli.with {
-            _ longOpt: 'root', args: 1, argName: 'base_node', 'use a different root node for transformations'
-            f longOpt: 'filter', args: 1, argName: 'expr', 'a boolean Groovy expression to filter input nodes'
-            e longOpt: 'reduce', args: 1, argName: 'expr', 'a Groovy expression applied on each input node'
-            t longOpt: 'flat', 'flatten the output, [[a], [b,c]] -> [a,b,c]'
+            _ longOpt: 'root', args: 1, argName: 'base_node', 'use base_node as the root node for content processing'
+            f longOpt: 'filter', args: 1, argName: 'expr', 'expr is a predicate to filter input nodes'
+            c longOpt: 'collect', args: 1, argName: 'expr', 'expr is applied on each node, results are collected as List'
+            e longOpt: 'entries', args: 1, argName: 'expr', 'expr is applied on each node, results are collected as Map'
+            t longOpt: 'flat', 'flatten the output (ignored with -e)'
             h longOpt: 'help', 'print this message'
             p longOpt: 'pretty', 'prettyprint the output'
             s longOpt: 'sort', args: 1, argName: 'sort_expr', 'a Groovy expression used to sort output nodes'
@@ -83,7 +86,8 @@ class JsonProcessor {
         if (options.f) source << ".findAll{ _ -> ${debugExpr('Filter')}${options.f} }"
         if (options.s) source << ".sort{ _ -> ${debugExpr('Sort')}${options.s} }"
         if (options.'sort-desc') source << '.reverse()'
-        if (options.e) source << ".collect{ _ -> ${debugExpr('Reduce')}${options.e} }"
+        if (options.c) source << ".collect{ _ -> ${debugExpr('Collect')}${options.c} }"
+        else if (options.e) source << ".collectEntries{ _ -> ${debugExpr('Entries')}${options.e} }"
         if (options.x) source << ";println '    Output: ' + nodes;nodes"
 
         source.toString()

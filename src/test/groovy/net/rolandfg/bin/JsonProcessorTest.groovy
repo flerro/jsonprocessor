@@ -32,9 +32,9 @@ class JsonProcessorTest extends GroovyTestCase {
 
     // -------------------------------------------------------------------------------------------------- cli parser
 
-    void testBuildExprSimple() {
-        String expectedExpr = "root.findAll{ _ -> _.age > 18 }.sort{ _ -> _.age }.reverse().collect{ _ -> _.name }"
-        String expectedExprWithDebug =  "nodes = root.findAll{ _ -> println '    Filter: ' + _; _.age > 18 }.sort{ _ -> println '      Sort: ' + _; _.age }.reverse().collect{ _ -> println '    Reduce: ' + _; _.name };println '    Output: ' + nodes;nodes"
+    void testBuildExprSimpleEntries() {
+        String expectedExpr = "root.findAll{ _ -> _.age > 18 }.sort{ _ -> _.age }.reverse().collectEntries{ _ -> _.name }"
+        String expectedExprWithDebug =  "nodes = root.findAll{ _ -> println '    Filter: ' + _; _.age > 18 }.sort{ _ -> println '      Sort: ' + _; _.age }.reverse().collectEntries{ _ -> println '   Entries: ' + _; _.name };println '    Output: ' + nodes;nodes"
         Map options = [ f: "_.age > 18", e: "_.name", s: "_.age", "sort-desc": true]
 
         assert buildExpr(options) == expectedExpr
@@ -43,14 +43,27 @@ class JsonProcessorTest extends GroovyTestCase {
         assert buildExpr(options) == expectedExprWithDebug
     }
 
+    void testBuildExprSimple() {
+        String expectedExpr = "root.findAll{ _ -> _.age > 18 }.sort{ _ -> _.age }.reverse().collect{ _ -> _.name }"
+        String expectedExprWithDebug =  "nodes = root.findAll{ _ -> println '    Filter: ' + _; _.age > 18 }.sort{ _ -> println '      Sort: ' + _; _.age }.reverse().collect{ _ -> println '   Collect: ' + _; _.name };println '    Output: ' + nodes;nodes"
+        Map options = [ f: "_.age > 18", c: "_.name", s: "_.age", "sort-desc": true]
+
+        assert buildExpr(options) == expectedExpr
+
+        options.x = true
+        assert buildExpr(options) == expectedExprWithDebug
+
+    }
+
     void testCliBuilderOptionsHavingParams() {
         String rootNode = "root"
         String filterExpr = "filter"
-        String mapExpr = "map"
+        String collectExpr = "collect"
+        String entriesExpr = "collectEntries"
         String sortExpr = "sort"
         String fileName = "input.json"
-        String[] args = " -f ${filterExpr} -e ${mapExpr} -s ${sortExpr} --root ${rootNode} ${fileName}".split()
-        String[] longArgs = " --filter ${filterExpr} --reduce ${mapExpr} --sort ${sortExpr} --root ${rootNode} ${fileName}".split()
+        String[] args = " -f ${filterExpr} -c ${collectExpr} -e ${entriesExpr} -s ${sortExpr} --root ${rootNode} ${fileName}".split()
+        String[] longArgs = " --filter ${filterExpr} --collect ${collectExpr} --collect-entries ${entriesExpr}  --sort ${sortExpr} --root ${rootNode} ${fileName}".split()
 
         CliBuilder cli = cliBuilder()
 
@@ -58,7 +71,8 @@ class JsonProcessorTest extends GroovyTestCase {
             assert options, "Invalid args"
             assert options.arguments() && options.arguments()[0] == fileName, "Input file NOT parsed"
             assert options.f && options.f == filterExpr && options.filter == filterExpr, "Filter expression NOT parsed: ${options.f}"
-            assert options.e && options.e == mapExpr && options.reduce == mapExpr, "Reduce expression NOT parsed"
+            assert options.c && options.c == collectExpr && options.collect == collectExpr, "Collect expression NOT parsed"
+            assert options.e && options.e == entriesExpr && options.'entries' == entriesExpr, "Entries expression NOT parsed"
             assert options.s && options.s == sortExpr && options.sort == sortExpr, "Sort expression NOT parsed"
             assert options.root && options.root == rootNode, "Root node expression NOT parsed"
         }
@@ -88,11 +102,12 @@ class JsonProcessorTest extends GroovyTestCase {
         check(cli.parse(longArgs))
     }
 
-    void testBuildExprComplex() {
+    void testBuildComplexExpression() {
         String expectedExpr = "root.findAll{ _ -> _.name.endsWith('e') }.collect{ _ -> [(_.name) : (_.val)] }"
-        Map options = [ flat: true, f : "_.name.endsWith('e')", e: "[(_.name) : (_.val)]"]
-//        root.findAll{ _ -> _.name.endsWith('e') }.collect{ _ -> [(_.name) : (_.val)] }
-//        root.findAll{ _ -> _.name.endsWith('e') }.collect{  _ -> [(_.name) : (_.val)] }
+        Map options = [ flat: true, f : "_.name.endsWith('e')", c: "[(_.name) : (_.val)]", e: "[(_.name) : (_.val)]"]
+
+        // -e option should be ignored
+
         assert buildExpr(options) == expectedExpr
     }
 
@@ -106,10 +121,18 @@ class JsonProcessorTest extends GroovyTestCase {
         assert transform(items, expr) == expectedItems
     }
 
-    void testMap() {
+    void testCollect() {
         List items = [[age:19, name:"Andrea"], [age:21, name:"Beatrice"], [age:16, name:"Carlo"]]
         List expectedItems = items.collect { it.name }
         String expr = "root.collect { _ -> _.name }"
+
+        assert transform(items, expr) == expectedItems
+    }
+
+    void testCollectEntries() {
+        List items = [[age:19, name:"Andrea"], [age:21, name:"Beatrice"], [age:16, name:"Carlo"]]
+        Map expectedItems = items.collectEntries { [(it.name) : (it.age)] }
+        String expr = "root.collectEntries { _ -> [(_.name) : (_.age)] }"
 
         assert transform(items, expr) == expectedItems
     }
@@ -135,36 +158,15 @@ class JsonProcessorTest extends GroovyTestCase {
         assert transform(options.root ? (markup."${options.root}") : markup, source) == expectedOutput
     }
 
-    void testIntegrationSimple() {
+    void testIntegrationCollect() {
         String content = '[{"name":"Andrea","age":19},{"name":"Beatrice", "age": 21},{"name":"Carlo", "age":16}]'
-        String[] cli = ["-x", "-f", "_.age > 18", "-e", "_.name", "-s", "_.age", "--sort-desc"]
+        String[] cli = ["-x", "-f", "_.age > 18", "-c", "_.name", "-s", "_.age", "--sort-desc"]
         List expectedOutput = ["Beatrice","Andrea"]
 
         checkMarkupTransformation(content, cli, expectedOutput)
     }
 
-//    void testIntegrationXml() {
-//        String content = '''<?xml version="1.0" encoding="UTF-8" ?>
-//<people>
-//    <person age="19">
-//        <name>Andrea</name>
-//    </person>
-//    <person age="21">
-//        <name>Beatrice</name>
-//    </person>
-//    <person age="16">
-//        <name>Carlo</name>
-//    </person>
-//</people>
-//'''
-////        String[] cli = ["-x", "-f", "_.@age > 18", "-e", "_.name", "-s", "_.@age", "--sort-desc", "--xml"]
-//        String[] cli = ["-x", "_.name", "--xml"]
-//        List expectedOutput = ["Andrea","Beatrice","Carlo"]
-//
-//        checkMarkupTransformation(content, cli, expectedOutput)
-//    }
-
-    void testIntegrationComplex() {
+    void testIntegrationCollectEntries() {
         String content = '''{
                                 "type": "sample",
                                 "link": "http://file-sample.com/json",
@@ -185,8 +187,8 @@ class JsonProcessorTest extends GroovyTestCase {
                                 ]
                             }'''
 
-        String[] cli = [ "--root", "metadata", "--flat", "-f","_.name.endsWith('e')", "-e", "[(_.name) : (_.val)]" ]
-        List expectedOutput = [[media_type:"application/json"], [website:"json.org"]]
+        String[] cli = [ "--root", "metadata", "-f","_.name.endsWith('e')", "-e", "[(_.name) : (_.val)]" ]
+        Map expectedOutput = [media_type:"application/json", website:"json.org"]
 
         checkMarkupTransformation(content, cli, expectedOutput)
     }
