@@ -5,8 +5,8 @@
 # Visit: http://www.rolandfg.net/2014/06/29/json-commandline-processor/
 #
 
-VER="1.0"
-NAME="jsonprocessor"
+VER="0.6"
+NAME="jop"
 
 BASE=`dirname $0`
 JAVA=`which java`
