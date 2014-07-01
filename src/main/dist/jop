@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# A sample startup script for jsonprocessor, put along the JAR in a directory included in PATH
+# A sample startup script for jop, a JSON processor
 #
-# Visit: http://www.rolandfg.net/2014/06/29/json-commandline-processor/
+# More info: http://www.rolandfg.net/2014/06/29/json-commandline-processor/
 #
 
 VER="0.6"
@@ -17,21 +17,21 @@ if [ -z "$JAVA" ]; then
     exit 1
 fi
 
-if [ `uname -o` = "Cygwin" ];then
-    # JAR file PATH
-    JAR=`cygpath -w "$JAR"`
+# Handle last 
+LEN=$(($#-1))
+INPUTFILE=${@: -1}
+if [ ! -f "$INPUTFILE" ]; then
+   # Last argument is not an input file -> reset 
+   LEN=$#
+   INPUTFILE=""
+fi
 
-    # File path
-    OTHERPARAMS="$@"
-    echo $OTHERPARAMS
-    INPUTFILE=""
-    LASTARG=${@: -1}
-    if [ -f "$LASTARG" ]; then
-        INPUTFILE=`cygpath -w $LASTARG`
-        LEN=$(($#-1))
-        OTHERPARAMS=${@:1:$LEN}
+# Transform file paths on Cygwin
+if [ `uname -o` = "Cygwin" ];then
+    JAR=`cygpath -w "$JAR"`   
+    if [ -n "$INPUTFILE" ]; then
+        INPUTFILE=`cygpath -w "$INPUTFILE"`
     fi
 fi
 
-# TODO Handle parameters with space
-echo $JAVA -jar "$JAR" "$OTHERPARAMS" $INPUTFILE
+$JAVA -jar "$JAR" "${@:1:$LEN}" $INPUTFILE

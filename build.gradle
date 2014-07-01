@@ -31,15 +31,11 @@ dependencies {
     compile 'commons-cli:commons-cli:1.2'
 }
 
-shadowJar {
-    archiveName = "jop.jar"
-}
-
 distributions {
     main {
         baseName = project.name
         contents {
-            from { "${project.buildDir}/libs/jop.jar" }
+            from { "${project.buildDir}/libs/${project.name}-${project.version}.jar" }
         }
     }
 }
