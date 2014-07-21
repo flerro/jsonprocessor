@@ -2,7 +2,7 @@
 
 A [Groovy](http://groovy.codehaus.org/) powered command line tool to manipulate JSON content. 
 
-Superseeded by a similar (WIP) implementation in node.js: [jop](https://github.com/flerro/jop).
+Superseeded by a (WIP) [re-implementation in node.js](https://github.com/flerro/jop).
 
 ## Build
 
