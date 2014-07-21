@@ -1,8 +1,8 @@
 # JSON Processor
 
-A command line processor for JSON content, built with [Groovy](http://groovy.codehaus.org/). 
+A [Groovy](http://groovy.codehaus.org/) powered command line tool to manipulate JSON content. 
 
-For more info about installation and usage visit the [related post on my blog](http://www.rolandfg.net/2014/06/29/json-commandline-processor/).
+Superseeded by a similar (WIP) implementation in node.js: [jop](https://github.com/flerro/jop).
 
 ## Build
 
