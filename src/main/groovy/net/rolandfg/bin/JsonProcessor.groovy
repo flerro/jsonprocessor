@@ -38,19 +38,20 @@ class JsonProcessor {
      * @return a cli builder object
      */
     static CliBuilder cliBuilder() {
-        CliBuilder cli = new CliBuilder(usage: 'java -jar jop.jar [options] [input.json]',
-                                        header: '\nJSON filtering and transformation leveraging Groovy expressivity.\nOptions:',
+        CliBuilder cli = new CliBuilder(usage: 'jop [options] [input.json]',
+                                        header: '\nA JSON collection processor leveraging Groovy expressions.\nOptions:',
                                         footer: '\nExample: List names, sort descending by age\n\n' +
                                                 '\n | ' +
                                                 '\n | $ cat input.json   \n' +
                                                 '\n | ' +
                                                 '\n |   [{"name":"Andrea", "age":19}, {"name":"Bianca", "age": 21}, {"name":"Carlo", "age":16}]\n' +
                                                 '\n | ' +
-                                                '\n | $ java -jar jop.jar -s _.age --sort-dec -c _.name input.json\n' +
+                                                '\n | $ jop -s _.age --sort-dec -c _.name input.json\n' +
                                                 '\n | ' +
                                                 '\n |   ["Bianca","Andrea","Carlo"]     ' +
                                                 '\n |  '+
-                                                '\n |  # The undescore (_) references current node in expression.',
+                                                '\n |  # The undescore (_) references current node in expression.' +
+                                                '\n |  ',
                                         stopAtNonOption: false,
                                         width: 105)
         cli.with {
