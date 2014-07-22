@@ -6,7 +6,7 @@ A [Groovy](http://groovy.codehaus.org/) powered command line tool to manipulate 
 
 ## Build
 
-This is a [Gradle](http://www.gradle.org) project. Gradle wrapper is included in the distribution.
+This is a [Gradle](http://www.gradle.org) project. Gradle wrapper is included in the repo.
 
 Run tests:
 	
