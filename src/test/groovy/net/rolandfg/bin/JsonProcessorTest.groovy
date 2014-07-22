@@ -63,7 +63,7 @@ class JsonProcessorTest extends GroovyTestCase {
         String sortExpr = "sort"
         String fileName = "input.json"
         String[] args = " -f ${filterExpr} -c ${collectExpr} -e ${entriesExpr} -s ${sortExpr} --root ${rootNode} ${fileName}".split()
-        String[] longArgs = " --filter ${filterExpr} --collect ${collectExpr} --collect-entries ${entriesExpr}  --sort ${sortExpr} --root ${rootNode} ${fileName}".split()
+        String[] longArgs = " --filter ${filterExpr} --collect ${collectExpr} --entries ${entriesExpr}  --sort ${sortExpr} --root ${rootNode} ${fileName}".split()
 
         CliBuilder cli = cliBuilder()
 
@@ -151,7 +151,7 @@ class JsonProcessorTest extends GroovyTestCase {
         def options = cliBuilder().parse(args)
         assert options, "Invalid CLI"
 
-        def markup = options.xml ? new XmlSlurper().parseText(content) : new JsonSlurper().parseText(content)
+        def markup = new JsonSlurper().parseText(content)
         String source = buildExpr(options)
         assert source
 
